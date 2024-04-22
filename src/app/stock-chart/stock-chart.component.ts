@@ -1,8 +1,8 @@
-import { Component, OnInit } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { Chart, registerables } from 'chart.js';
 import 'chartjs-adapter-date-fns';
 import { StockPriceService } from '../stock-price.service';
+import { Subscription, interval } from 'rxjs';
 
 @Component({
   selector: 'app-stock-chart',
@@ -13,16 +13,26 @@ import { StockPriceService } from '../stock-price.service';
 })
 
 
-export class StockChartComponent implements OnInit {
+export class StockChartComponent implements OnInit, OnDestroy {
 
   chart: any;
-  stockPriceData: any[] =[] ;
+  stockPriceData: any[] = [];
+  private dataRefreshSubscription: Subscription = new Subscription;
 
   constructor(private stockPriceService: StockPriceService) { }
 
   ngOnInit(): void {
-    // Fetch stock price data
+    // Fetch stock price data initially
     this.fetchStockPriceData();
+    // Schedule data refresh every minute
+    this.scheduleDataRefresh();
+  }
+
+  ngOnDestroy(): void {
+    // Unsubscribe from data refresh subscription to avoid memory leaks
+    if (this.dataRefreshSubscription) {
+      this.dataRefreshSubscription.unsubscribe();
+    }
   }
 
   fetchStockPriceData(): void {
@@ -38,6 +48,11 @@ export class StockChartComponent implements OnInit {
 
   renderChart(): void {
     Chart.register(...registerables);
+
+    // Destroy the existing chart to avoid duplicates
+    if (this.chart) {
+      this.chart.destroy();
+    }
 
     // Render chart using Chart.js
     this.chart = new Chart('stockChart', {
@@ -70,6 +85,15 @@ export class StockChartComponent implements OnInit {
         }
       }
     });
+  }
+
+  scheduleDataRefresh(): void {
+    // Subscribe to interval to refresh data every minute
+    this.dataRefreshSubscription = interval(60000) // 60000 milliseconds 
+      .subscribe(() => {
+        console.log('refresh')
+        this.fetchStockPriceData();
+      });
   }
 }
 
